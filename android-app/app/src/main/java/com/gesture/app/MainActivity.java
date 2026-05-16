@@ -3,6 +3,7 @@ package com.gesture.app;
 import android.annotation.SuppressLint;
 import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -12,6 +13,7 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.webkit.PermissionRequest;
 import android.widget.EditText;
+import android.widget.Button;
 import android.widget.ProgressBar;
 import android.widget.Toast;
 
@@ -23,9 +25,11 @@ public class MainActivity extends AppCompatActivity {
     private WebView webView;
     private ProgressBar progressBar;
     private SharedPreferences prefs;
+    private EditText serverUrlInput;
+    private Button connectButton;
     
-    // Default URL - change this to your deployed URL
-    private static final String DEFAULT_URL = "http://91.150.160.38:6054";
+    // Default URL - change this to your deployed Android/web app URL
+    private static final String DEFAULT_URL = "http://10.25.205.38:3000";
     private static final String PREF_URL = "app_url";
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -36,11 +40,33 @@ public class MainActivity extends AppCompatActivity {
 
         prefs = getSharedPreferences("GestureApp", MODE_PRIVATE);
         
+        serverUrlInput = findViewById(R.id.serverUrlInput);
+        connectButton = findViewById(R.id.connectButton);
         webView = findViewById(R.id.webView);
         progressBar = findViewById(R.id.progressBar);
 
         setupWebView();
+        setupLauncherControls();
         loadSavedUrl();
+    }
+
+    private void setupLauncherControls() {
+        String savedUrl = prefs.getString(PREF_URL, DEFAULT_URL);
+        serverUrlInput.setText(savedUrl);
+
+        connectButton.setOnClickListener(v -> connectToServer());
+    }
+
+    private void connectToServer() {
+        String url = serverUrlInput.getText() == null ? "" : serverUrlInput.getText().toString().trim();
+
+        if (TextUtils.isEmpty(url)) {
+            Toast.makeText(this, "Enter a server URL", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        prefs.edit().putString(PREF_URL, url).apply();
+        loadUrl(url);
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -101,6 +127,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void loadSavedUrl() {
         String url = prefs.getString(PREF_URL, DEFAULT_URL);
+        serverUrlInput.setText(url);
         loadUrl(url);
     }
 
@@ -125,6 +152,7 @@ public class MainActivity extends AppCompatActivity {
                 String newUrl = input.getText().toString().trim();
                 if (!newUrl.isEmpty()) {
                     prefs.edit().putString(PREF_URL, newUrl).apply();
+                    serverUrlInput.setText(newUrl);
                     loadUrl(newUrl);
                     Toast.makeText(this, "URL saved", Toast.LENGTH_SHORT).show();
                 }
@@ -132,6 +160,7 @@ public class MainActivity extends AppCompatActivity {
             .setNegativeButton("Cancel", null)
             .setNeutralButton("Reset Default", (dialog, which) -> {
                 prefs.edit().putString(PREF_URL, DEFAULT_URL).apply();
+                serverUrlInput.setText(DEFAULT_URL);
                 loadUrl(DEFAULT_URL);
                 Toast.makeText(this, "Reset to default", Toast.LENGTH_SHORT).show();
             })

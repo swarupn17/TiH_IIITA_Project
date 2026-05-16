@@ -1,0 +1,3 @@
+client_id,captured_at,stored_at,source,flex_timestamp,flex_ch0_raw,flex_ch0_volt,flex_ch1_raw,flex_ch1_volt,flex_ch2_raw,flex_ch2_volt,flex_ch3_raw,flex_ch3_volt,flex_ch4_raw,flex_ch4_volt,flex_prediction,flex_values,mediapipe_prediction,mediapipe_frame
+3,2026-05-15T11:58:54.853Z,2026-05-15T11:58:54.862216+00:00,continuous,2026-05-15 17:28:55,17168,0.8677,18321,0.9323,18321,0.929,14093,0.7096,65407,3.3,"{""gesture"": ""unknown"", ""confidence"": 0.23, ""classId"": -1}","{""timestamp"": ""2026-05-15 17:28:51"", ""ch0_raw"": 17296, ""ch0_volt"": 0.8709, ""ch1_raw"": 17296, ""ch1_volt"": 0.8742, ""ch2_raw"": 17360, ""ch2_volt"": 0.8774, ""ch3_raw"": 13837, ""ch3_volt"": 0.6935, ""ch4_raw"": 65407, ""ch4_volt"": 3.2742, ""target"": 1000}",{},{}
+ ̰

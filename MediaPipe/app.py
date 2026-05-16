@@ -6,7 +6,10 @@ from flask_socketio import SocketIO, emit
 from flask_cors import CORS
 import cv2
 import base64
+import csv
+import json
 import threading
+from datetime import datetime, timezone
 import pickle
 import numpy as np
 import mediapipe as mp
@@ -21,6 +24,7 @@ WEBCAM_INDEX = 0
 PKL_MODEL_PATH = "gesture_classifier_rf.pkl"
 TASK_MODEL_PATH = "hand_landmarker.task"
 # ---------------------
+DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 
 # Global video capture - initialized later
 cap = None
@@ -112,6 +116,8 @@ HAND_CONNECTIONS = [
 
 frame_lock = threading.Lock()
 latest_data = {"image": None, "predictions": []}
+latest_sample = None
+sample_lock = threading.Lock()
 thread = None
 
 def encode_frame(frame):
@@ -120,9 +126,39 @@ def encode_frame(frame):
     encoded = base64.b64encode(buffer).decode('utf-8')
     return f"data:image/jpeg;base64,{encoded}"
 
+
+class SampleStoreInput:
+    def __init__(self, client_id, label):
+        self.client_id = client_id
+        self.label = label
+
+
+def _sanitize_client_id(client_id: str) -> str:
+    cleaned = "".join(ch for ch in client_id.strip() if ch.isalnum() or ch in ("-", "_"))
+    return cleaned or "unknown"
+
+
+def _append_user_csv(client_id: str, filename: str, row: dict) -> str:
+    user_id = _sanitize_client_id(client_id)
+    user_dir = os.path.join(DATA_DIR, user_id)
+    os.makedirs(user_dir, exist_ok=True)
+
+    csv_path = os.path.join(user_dir, filename)
+    file_exists = os.path.exists(csv_path)
+    fieldnames = list(row.keys())
+
+    with sample_lock:
+        with open(csv_path, "a", newline="", encoding="utf-8") as csv_file:
+            writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+            if not file_exists:
+                writer.writeheader()
+            writer.writerow(row)
+
+    return csv_path
+
 def video_processing_thread():
     """Background thread to process video frames."""
-    global latest_data, cap
+    global latest_data, latest_sample, cap
     print("Starting video processing thread...")
     
     while True:
@@ -198,6 +234,19 @@ def video_processing_thread():
                     "confidence": round(float(confidence), 2),
                     "bbox": [x1, y1, x2, y2]
                 })
+
+                with sample_lock:
+                    latest_sample = {
+                        "source": "mediapipe",
+                        "stored_at": datetime.now(timezone.utc).isoformat(),
+                        "prediction": label,
+                        "confidence": round(float(confidence), 4),
+                        "bbox": [x1, y1, x2, y2],
+                        "features": normalized_data.tolist(),
+                    }
+            else:
+                with sample_lock:
+                    latest_sample = None
 
             encoded_frame = encode_frame(annotated_frame)
             data_packet = {"image": encoded_frame, "predictions": predictions}
@@ -409,6 +458,45 @@ def index():
     </body>
     </html>
     """)
+
+
+@app.route('/store_sample', methods=['POST'])
+def store_sample():
+    """Store the latest MediaPipe sample in a per-user CSV file."""
+    data = request.get_json() or {}
+    client_id = data.get('client_id', '').strip()
+    label = data.get('label', '').strip()
+
+    if not client_id:
+        return jsonify({"status": "error", "message": "client_id is required"}), 400
+
+    if not label:
+        return jsonify({"status": "error", "message": "label is required"}), 400
+
+    with sample_lock:
+        sample = dict(latest_sample) if latest_sample else None
+
+    if not sample:
+        return jsonify({"status": "error", "message": "No MediaPipe sample available yet"}), 400
+
+    row = {
+        "client_id": client_id,
+        "label": label,
+        "source": sample.get("source", "mediapipe"),
+        "stored_at": datetime.now(timezone.utc).isoformat(),
+        "prediction": sample.get("prediction"),
+        "confidence": sample.get("confidence"),
+        "bbox": json.dumps(sample.get("bbox")),
+        "features_json": json.dumps(sample.get("features")),
+    }
+
+    csv_path = _append_user_csv(client_id, "mediapipe.csv", row)
+    return jsonify({
+        "status": "success",
+        "message": "MediaPipe sample stored",
+        "path": csv_path,
+        "client_id": client_id,
+    })
 
 
 @socketio.on('connect')

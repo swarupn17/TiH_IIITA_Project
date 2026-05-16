@@ -27,9 +27,18 @@ export default function App() {
   // MediaPipe state
   const [mediapipeConnected, setMediapipeConnected] = useState(false);
   const [mediapipePrediction, setMediapipePrediction] = useState(null);
+  const [mediapipeFrameData, setMediapipeFrameData] = useState(null);
   const [mediapipeError, setMediapipeError] = useState(null);
   const canvasRef = useRef(null);
   const socketRef = useRef(null);
+
+  // CSV save state
+  const [clientId, setClientId] = useState("");
+  const [saveStatus, setSaveStatus] = useState("");
+  const [savingSamples, setSavingSamples] = useState(false);
+  const autoSaveIntervalRef = useRef(null);
+  const autoSaveBusyRef = useRef(false);
+  const [isRunning, setIsRunning] = useState(false);
 
   // Combined result
   const [matchResult, setMatchResult] = useState({ status: "waiting", message: "Waiting for predictions..." });
@@ -120,6 +129,12 @@ export default function App() {
             gesture: firstPred.label?.toLowerCase(),
             confidence: firstPred.confidence
           });
+          setMediapipeFrameData({
+            gesture: firstPred.label?.toLowerCase(),
+            confidence: firstPred.confidence,
+            bbox: firstPred.bbox,
+            timestamp: new Date().toISOString()
+          });
 
           // Draw bounding box
           const [x1, y1, x2, y2] = firstPred.bbox;
@@ -132,6 +147,7 @@ export default function App() {
           ctx.fillText(`${firstPred.label} (${firstPred.confidence})`, x1 * scale, y1 * scale - 8);
         } else {
           setMediapipePrediction(null);
+          setMediapipeFrameData(null);
         }
       };
     });
@@ -239,6 +255,95 @@ export default function App() {
     }
   };
 
+  const saveCurrentSamples = useCallback(async (silent = false) => {
+    if (autoSaveBusyRef.current) {
+      return;
+    }
+
+    const trimmedClientId = clientId.trim();
+    if (!trimmedClientId) {
+      if (!silent) {
+        alert("Please enter a client id");
+      }
+      return;
+    }
+
+    autoSaveBusyRef.current = true;
+    setSavingSamples(true);
+    setSaveStatus("Saving continuous record...");
+
+    const payload = {
+      client_id: trimmedClientId,
+      capture_time: new Date().toISOString(),
+      flex_prediction: {
+        gesture: flexPrediction?.gesture || null,
+        confidence: flexPrediction?.confidence || null,
+        classId: flexPrediction?.classId ?? null,
+      },
+      flex_values: flexValues,
+      mediapipe_prediction: mediapipePrediction,
+      mediapipe_frame: mediapipeFrameData,
+    };
+
+    const postSample = async (url) => {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      // Try to parse JSON if possible, otherwise fall back to text
+      let data;
+      const contentType = res.headers.get("content-type") || "";
+      if (contentType.includes("application/json")) {
+        try {
+          data = await res.json();
+        } catch (e) {
+          data = { status: res.ok ? "ok" : "error", message: `Invalid JSON response (${e.message})` };
+        }
+      } else {
+        const text = await res.text();
+        data = { status: res.ok ? "ok" : "error", message: text };
+      }
+
+      if (!res.ok || data.status === "error") {
+        throw new Error(data.message || data.error || `Failed to store sample (status ${res.status})`);
+      }
+
+      return data;
+    };
+
+    try {
+      const result = await postSample(getFlexEndpoint("/store_record"));
+      setSaveStatus(`Saved to ${result.path}`);
+    } catch (err) {
+      console.error("Error storing sample:", err);
+      setSaveStatus(`Error storing sample: ${err.message}`);
+    } finally {
+      setSavingSamples(false);
+      autoSaveBusyRef.current = false;
+    }
+  }, [clientId, flexPrediction, flexValues, mediapipePrediction, mediapipeFrameData]);
+
+  const startAutoSave = useCallback(() => {
+    if (autoSaveIntervalRef.current) {
+      return;
+    }
+
+    autoSaveIntervalRef.current = setInterval(() => {
+      if (isRunning) {
+        saveCurrentSamples(true);
+      }
+    }, 250);
+  }, [isRunning, saveCurrentSamples]);
+
+  const stopAutoSave = useCallback(() => {
+    if (autoSaveIntervalRef.current) {
+      clearInterval(autoSaveIntervalRef.current);
+      autoSaveIntervalRef.current = null;
+    }
+  }, []);
+
   // Fetch camera status on mount
   useEffect(() => {
     fetchCameraStatus();
@@ -267,19 +372,22 @@ export default function App() {
     }
   }, [flexPrediction, mediapipePrediction]);
 
-  // ==================== START/STOP ALL ====================
-  const [isRunning, setIsRunning] = useState(false);
-
   const startAll = () => {
+    if (!clientId.trim()) {
+      alert("Please enter a client id before starting detection");
+      return;
+    }
     startFlexPolling();
     connectMediapipe();
     setIsRunning(true);
+    startAutoSave();
   };
 
   const stopAll = () => {
     stopFlexPolling();
     disconnectMediapipe();
     setIsRunning(false);
+    stopAutoSave();
   };
 
   // Cleanup on unmount
@@ -287,8 +395,9 @@ export default function App() {
     return () => {
       stopFlexPolling();
       disconnectMediapipe();
+      stopAutoSave();
     };
-  }, [stopFlexPolling, disconnectMediapipe]);
+  }, [stopFlexPolling, disconnectMediapipe, stopAutoSave]);
 
   // ==================== RENDER ====================
   return (
@@ -455,6 +564,62 @@ export default function App() {
         >
           {isRunning ? "⏹ Stop Detection" : "▶ Start Detection"}
         </button>
+      </div>
+
+      {/* CSV Save Controls */}
+      <div
+        style={{
+          marginBottom: "20px",
+          background: "#111827",
+          border: "1px solid #334155",
+          borderRadius: "12px",
+          padding: "16px",
+        }}
+      >
+        <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", alignItems: "center" }}>
+          <input
+            type="text"
+            value={clientId}
+            onChange={(e) => setClientId(e.target.value)}
+            placeholder="Client ID"
+            style={{
+              minWidth: "220px",
+              padding: "10px 12px",
+              borderRadius: "8px",
+              border: "1px solid #475569",
+              background: "#0f172a",
+              color: "#fff",
+            }}
+          />
+
+          <button
+            onClick={saveCurrentSamples}
+            disabled={savingSamples}
+            style={{
+              background: savingSamples ? "#64748b" : "#00ff88",
+              color: "#000",
+              border: "none",
+              padding: "10px 16px",
+              borderRadius: "8px",
+              cursor: savingSamples ? "not-allowed" : "pointer",
+              fontWeight: "bold",
+            }}
+          >
+            {savingSamples ? "Saving..." : isRunning ? "Recording CSV..." : "Save User CSV"}
+          </button>
+        </div>
+
+        <div style={{ marginTop: "8px", color: "#94a3b8", fontSize: "13px" }}>
+          {isRunning
+            ? "Continuous recording is on. One combined row is appended for each capture cycle."
+            : "Press Start Detection to begin continuous CSV recording."}
+        </div>
+
+        {saveStatus && (
+          <div style={{ marginTop: "10px", color: "#cbd5e1", fontSize: "14px" }}>
+            {saveStatus}
+          </div>
+        )}
       </div>
 
       {/* Two Panel Layout */}
