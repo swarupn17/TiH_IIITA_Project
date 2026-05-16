@@ -334,7 +334,7 @@ export default function App() {
       if (isRunning) {
         saveCurrentSamples(true);
       }
-    }, 250);
+    }, 1000); // one sample per second while recording
   }, [isRunning, saveCurrentSamples]);
 
   const stopAutoSave = useCallback(() => {
