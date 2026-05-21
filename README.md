@@ -1,152 +1,427 @@
-# Gesture Recognition Project
+# TiH IIITA — Gesture Recognition System
 
-This project combines two inputs for gesture recognition:
+Real-time hand gesture recognition using Raspberry Pi 4, flex sensors, MediaPipe, and a React web dashboard.
 
-- A camera stream for hand gestures
-- Flex sensor readings for sensor-based gesture input
+---
 
-The project is designed to run on the same network. That means your laptop, Raspberry Pi, and Android phone should all be connected to the same Wi-Fi.
+## 📦 What This Project Does
 
-## What You Need
+- **Raspberry Pi** captures hand movements via camera and flex sensors
+- **MediaPipe** detects hand landmarks from the camera stream
+- **FastAPI** receives flex sensor data from the Pi
+- **React Frontend** displays everything in a web dashboard
+- **Any device** (laptop, phone, tablet) on the same network can open the dashboard
 
-- A laptop or PC
-- A Raspberry Pi or another device that can stream the camera
-- A device that sends flex sensor readings
-- Android phone only if you want to use the mobile app
+---
 
-## Project Parts
+## 🖥️ System Requirements
 
-- `MediaPipe/` - camera gesture detection backend
-- `flex/` - flex sensor backend
-- `frontend/` - web app used to view and control the system
-- `android-app/` - optional Android app
-- `raspi-camera/` - helper scripts for camera streaming on Raspberry Pi
+### Laptop / PC
 
-## Important Rule
+- Python 3.9 or higher → https://www.python.org/downloads/
+- Node.js 16+ and npm → https://nodejs.org/
+- Git Bash (Windows) → https://git-scm.com/downloads
 
-Make sure every device is on the same Wi-Fi network before you start.
+### Raspberry Pi 4
 
-## Simple Setup Steps
+- Raspberry Pi OS installed
+- Pi Camera Module connected
+- Flex sensors connected via MCP3008 ADC
 
-### 1. Start the camera stream on Raspberry Pi
+---
 
-If your Raspberry Pi setup uses a folder named `pycam`, go into that folder first. If you are using the files in this repository, use the `raspi-camera/` folder instead.
+## 🆕 Setting Up on a New Laptop (Fresh Start)
 
-Run:
+Follow these steps in order — only needed once per laptop.
+
+### Step 1 — Install Python
+
+1. Go to https://www.python.org/downloads/
+2. Download Python 3.11 or higher
+3. Run installer
+4. ⚠️ IMPORTANT: Check ✅ **"Add Python to PATH"** before clicking Install
+5. Verify:
 
 ```bash
-cd pycam
-python script.py
+python --version
+# Should show: Python 3.11.x
 ```
 
-After this starts, note the camera URL it prints. You will need that URL for the next step.
+### Step 2 — Install Node.js
 
-Example camera URL:
+1. Go to https://nodejs.org/
+2. Download LTS version
+3. Install with default settings
+4. Verify:
 
 ```bash
-http://192.168.1.50:8080/video
+node --version
+npm --version
 ```
 
-### 2. Start the flex sensor stream on the Raspberry Pi or sensor device
+### Step 3 — Install Git Bash (Windows only)
 
-If your setup uses a folder named `flex_monitoring`, open it first. If you are using this repository, the flex code is in the `flex/` folder or in your own flex streaming script.
+1. Go to https://git-scm.com/downloads
+2. Download and install with default settings
+3. Open "Git Bash" from Start Menu for all commands below
 
-Run:
-
-```bash
-cd flex_monitoring
-source venv/bin/activate
-python data_stream.py
-```
-
-Important:
-
-- Edit `data_stream.py` so it contains the IP address of the FastAPI server.
-- This step sends flex readings to the server.
-
-### 3. Start the FastAPI / main project server from the root folder
-
-Go back to the root of the project and run:
+### Step 4 — Download the Project
 
 ```bash
+# Option A — If you have the ZIP file:
+# Extract the ZIP to a folder e.g. D:\TiH_Project
+
+# Option B — If using Git:
+git clone <repo-url>
 cd TiH_IIITA_Project-main
-./start_all.sh CAMERA_URL
 ```
 
-Replace `CAMERA_URL` with the camera URL you got from the Raspberry Pi.
+### Step 5 — Make script executable
+
+```bash
+chmod +x start_all.sh
+```
+
+### Step 6 — Open Windows Firewall ports (Windows only)
+
+Open **PowerShell as Administrator** and run:
+
+```powershell
+netsh advfirewall firewall add rule name="FastAPI 8000" dir=in action=allow protocol=TCP localport=8000
+netsh advfirewall firewall add rule name="MediaPipe 5001" dir=in action=allow protocol=TCP localport=5001
+netsh advfirewall firewall add rule name="Frontend 3000" dir=in action=allow protocol=TCP localport=3000
+```
+
+> ✅ This is a one-time step. Rules persist after reboot.
+
+### Step 7 — First Run (installs all dependencies automatically)
+
+```bash
+./start_all.sh http://<PI_IP>:8080/video
+```
+
+First run will automatically install all Python and npm packages.
+This takes 5-10 minutes depending on internet speed.
+
+**That's it! The project is set up.** Future runs are instant.
+
+---
+
+## 🟢 How to Run Every Day
+
+### Step 1 — Find Pi's IP address
+
+Connect to Pi via PuTTY and run:
+
+```bash
+hostname -I
+```
+
+Note the IP — e.g. `192.168.137.38`
+
+### Step 2 — Start everything on Laptop
+
+Open Git Bash in the project folder:
+
+```bash
+./start_all.sh http://<PI_IP>:8080/video
+```
 
 Example:
 
 ```bash
-./start_all.sh http://192.168.1.50:8080/video
+./start_all.sh http://192.168.137.38:8080/video
 ```
 
-This starts all required services for the project.
+Wait for this message:
 
-The first run may take a little longer because it prepares the environment. Later runs will start faster.
+```
+✅ All services are running!
+  flex backend      http://localhost:8000
+  mediapipe backend http://localhost:5001
+  frontend (web)    http://localhost:3000
+  frontend (phone)  http://192.168.x.x:3000  ← open this on phone
+```
 
-### 4. Open the frontend
+### Step 3 — Start everything on Pi
 
-After the server starts, open the frontend in your browser.
-
-The frontend is used to:
-
-- set the camera URL
-- enter the client id
-- start recording
-- stop recording
-- save the CSV file
-
-### 5. Use the app
-
-Follow this order:
-
-1. Enter the camera URL
-2. Enter the client id
-3. Start recording
-4. Stop recording when done
-5. Save CSV
-
-The CSV file for each client is saved in:
+In PuTTY:
 
 ```bash
-flex/data/<client_id>/continuous.csv
+/home/bdalab/start_pi.sh
 ```
 
-## Output Data
+### Step 4 — Open the web app
 
-Each client gets their own CSV file. It contains the captured gesture data for that client.
+- **Laptop browser:** http://localhost:3000
+- **Phone/tablet:** http://\<LAPTOP_IP\>:3000 (shown in terminal above)
 
-## Android App
+### Step 5 — Stop everything
 
-If you want to use the Android app:
+Press `Ctrl + C` in the Git Bash window.
+Press `Ctrl + C` in PuTTY.
 
-1. Build the app in Android Studio
-2. Install it on your phone
-3. Connect the phone to the same Wi-Fi network
-4. Enter the server URL in the app
+---
 
-The Android app is useful if you want to access the web app from a phone.
+## 🔄 When Network Changes
 
-## Quick Example Flow
+### What happens when network changes?
 
-1. Turn on the Raspberry Pi camera stream
-2. Turn on the flex sensor stream
-3. Run `./start_all.sh CAMERA_URL` from the root folder
-4. Open the frontend
-5. Enter client id
-6. Start recording
-7. Stop recording
-8. Save CSV
+- Pi gets a new IP address
+- Laptop gets a new IP address
+- Both must be on the **same network**
 
-## Troubleshooting
+### Checklist for network change:
 
-- If the camera does not connect, check that the camera URL is correct.
-- If the frontend cannot reach the backends, make sure all devices are on the same Wi-Fi.
-- If CSV is not saved, check the `flex/data/` folder for the client folder.
-- If you changed the camera or server IP, update the URL in the frontend and restart the services.
+```
+□ 1. Pi is connected to the new network (see below)
+□ 2. Laptop is connected to the same network
+□ 3. Find Pi's new IP → hostname -I (on Pi)
+□ 4. Run on laptop:
+       ./start_all.sh http://<NEW_PI_IP>:8080/video
+□ 5. Run on Pi:
+       /home/bdalab/start_pi.sh
+□ 6. Open browser: http://localhost:3000
+```
 
+> ✅ No other changes needed — script auto-detects new laptop IP and updates everything automatically.
 
-## License
+---
 
-MIT License
+## 📡 Connecting Pi to a New WiFi Network
+
+Pi needs to know the new network's credentials before it can connect.
+
+### Method 1 — Add via PuTTY (Best — do this in advance)
+
+While Pi is connected to current network:
+
+```bash
+sudo nano /etc/wpa_supplicant/wpa_supplicant.conf
+```
+
+Add all networks you'll ever use:
+
+```
+country=IN
+ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
+update_config=1
+
+network={
+    ssid="College_WiFi"
+    psk="College_Password"
+    key_mgmt=WPA-PSK
+    priority=3
+}
+
+network={
+    ssid="Home_WiFi"
+    psk="Home_Password"
+    key_mgmt=WPA-PSK
+    priority=2
+}
+
+network={
+    ssid="My_Phone_Hotspot"
+    psk="Hotspot_Password"
+    key_mgmt=WPA-PSK
+    priority=1
+}
+```
+
+Save: `Ctrl+X` → `Y` → Enter
+
+Apply:
+
+```bash
+sudo wpa_cli -i wlan0 reconfigure
+```
+
+> 💡 Pi will automatically connect to whichever network is available — no changes needed when switching!
+
+### Method 2 — SD Card Edit (When Pi has no network at all)
+
+1. Power off Pi
+2. Remove SD card → insert into laptop
+3. Open `boot` drive
+4. Create file named `wpa_supplicant.conf`:
+
+```
+country=IN
+ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
+update_config=1
+
+network={
+    ssid="Your_WiFi_Name"
+    psk="Your_WiFi_Password"
+    key_mgmt=WPA-PSK
+}
+```
+
+5. Also create an empty file named `ssh` (no extension) to enable SSH
+6. Reinsert SD card → power on Pi
+7. Pi connects automatically
+
+### Method 3 — Phone Hotspot (Quick Emergency Option)
+
+1. Turn on phone hotspot
+2. Make sure hotspot name/password matches what's in Pi's `wpa_supplicant.conf`
+3. Pi auto-connects within 30 seconds
+4. Check Pi IP in phone → Settings → Hotspot → Connected devices
+
+---
+
+## 🔍 Finding Pi's IP on a New Network
+
+| Method         | Command / Steps                                   |
+| -------------- | ------------------------------------------------- |
+| On Pi directly | `hostname -I`                                     |
+| From laptop    | `arp -a` (look for Pi's MAC)                      |
+| Phone hotspot  | Settings → Hotspot → Connected devices            |
+| Router page    | Open `192.168.1.1` in browser → connected devices |
+
+---
+
+## 🔌 Connecting to Pi via PuTTY
+
+1. Open PuTTY
+2. **Host Name:** Pi's IP (e.g. `192.168.137.38`)
+3. **Port:** `22`
+4. **Connection type:** `SSH`
+5. Click **Open**
+6. Login: `bdalab` / your password
+
+---
+
+## 📋 Quick Command Reference
+
+### Laptop (Git Bash)
+
+```bash
+# Run project (replace with current Pi IP)
+./start_all.sh http://192.168.137.38:8080/video
+
+# Reinstall all dependencies (if something breaks)
+./start_all.sh --force-install http://192.168.137.38:8080/video
+
+# View logs
+tail -f logs/flex.log
+tail -f logs/mediapipe.log
+tail -f logs/frontend.log
+
+# Find laptop IP
+ipconfig | findstr "IPv4"        # Windows
+hostname -I                       # Linux/Mac
+```
+
+### Pi (PuTTY)
+
+```bash
+# Start all Pi services
+/home/bdalab/start_pi.sh
+
+# Find Pi IP
+hostname -I
+
+# Test if laptop FastAPI is reachable from Pi
+curl http://<LAPTOP_IP>:8000
+
+# Test if camera is working
+curl -I http://localhost:8080/video
+```
+
+### Windows Firewall (PowerShell Admin)
+
+```powershell
+# Add rules (run once per laptop)
+netsh advfirewall firewall add rule name="FastAPI 8000" dir=in action=allow protocol=TCP localport=8000
+netsh advfirewall firewall add rule name="MediaPipe 5001" dir=in action=allow protocol=TCP localport=5001
+netsh advfirewall firewall add rule name="Frontend 3000" dir=in action=allow protocol=TCP localport=3000
+```
+
+---
+
+## 🔧 Troubleshooting
+
+### Problem: MediaPipe not starting (port 5001 connection refused)
+
+```bash
+cat logs/mediapipe.log
+
+# Run manually to see full error
+cd MediaPipe
+CAMERA_STREAM_URL=http://<PI_IP>:8080/video ../.venv/Scripts/python app.py
+```
+
+Fix: Make sure Pi camera is running first (`start_pi.sh` on Pi).
+
+### Problem: Flex sensor cannot reach FastAPI (timeout)
+
+```bash
+# Test from Pi
+curl http://<LAPTOP_IP>:8000
+```
+
+Fix: Add Windows Firewall rules (see above).
+
+### Problem: Phone shows "cannot reach backend"
+
+Fix: Re-run `start_all.sh` — it auto-updates `config.js` with correct laptop IP.
+
+### Problem: Camera stream not working
+
+```bash
+# Test from laptop
+curl -I http://<PI_IP>:8080/video
+```
+
+Fix: Run `start_pi.sh` on Pi. Make sure Pi and laptop are on same network.
+
+### Problem: Dependencies not installing (network timeout)
+
+College network blocks package downloads.
+Fix: Use mobile hotspot for first-time install only.
+
+### Problem: python3 not found on Windows
+
+Fix: Install Python from https://www.python.org/downloads/
+Check ✅ "Add Python to PATH" during install. Then restart Git Bash.
+
+### Problem: venv using wrong Python version
+
+```bash
+rm -rf .venv .start_all_setup_done
+./start_all.sh --force-install http://<PI_IP>:8080/video
+```
+
+---
+
+## 🌐 Port Reference
+
+| Service              | Port | Who uses it               |
+| -------------------- | ---- | ------------------------- |
+| React Frontend       | 3000 | Laptop browser + Phone    |
+| FastAPI (Flex data)  | 8000 | Pi sends data here        |
+| MediaPipe (Gestures) | 5001 | Frontend connects here    |
+| Pi Camera Stream     | 8080 | MediaPipe reads from here |
+
+---
+
+## 🔑 Default Settings
+
+| Item              | Value                                         |
+| ----------------- | --------------------------------------------- |
+| Pi SSH username   | `bdalab`                                      |
+| Pi SSH port       | `22`                                          |
+| Pi startup script | `/home/bdalab/start_pi.sh`                    |
+| Pi camera script  | `/home/bdalab/pycam/script.py`                |
+| Pi flex script    | `/home/bdalab/flex_monitoring/data_stream.py` |
+
+---
+
+## 👥 Project Info
+
+- **Institute:** IIITA — Indian Institute of Information Technology Allahabad
+- **Project:** TiH Gesture Recognition System
+- **Hardware:** Raspberry Pi 4, IMX500 Camera, MCP3008 ADC, 5x Flex Sensors
+- **Stack:** Python, FastAPI, Flask-SocketIO, MediaPipe, React, Socket.IO

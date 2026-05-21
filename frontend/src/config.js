@@ -1,37 +1,37 @@
 // ============================================
 // BACKEND CONFIGURATION
+// Auto-updated by start_all.sh — do not edit manually
+// Last updated: Thu May 21 17:53:12 IST 2026
+// Laptop IP: 172.20.35.235
 // ============================================
+const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
 
-// Detect if running in development mode (npm start on localhost:3000)
-const isDevelopment = typeof window !== 'undefined' && 
-                      window.location.hostname === 'localhost' && 
-                      window.location.port === '3000';
+// Auto-detected laptop IP — updated every time start_all.sh runs
+const LAPTOP_IP = '172.20.35.235';
 
-// In development: use direct backend ports
-// In production (Docker): use nginx proxy paths on same origin
-export const FLEX_API_URL = isDevelopment 
+export const FLEX_API_URL = isLocalhost
   ? 'http://localhost:8000'
-  : '/api/flex';
+  : `http://${LAPTOP_IP}:8000`;
 
-export const MEDIAPIPE_WS_URL = isDevelopment
+export const MEDIAPIPE_WS_URL = isLocalhost
   ? 'http://localhost:5001'
-  : '/api/mediapipe';
+  : `http://${LAPTOP_IP}:5001`;
 
-// Socket.IO uses same origin in production (nginx proxies /socket.io/)
-export const SOCKET_URL = isDevelopment
+export const SOCKET_URL = isLocalhost
   ? 'http://localhost:5001'
-  : '';  // Empty string = same origin
+  : `http://${LAPTOP_IP}:5001`;
 
-// Simple endpoint builder
 export const getFlexEndpoint = (path) => {
   const cleanPath = path.startsWith('/') ? path : '/' + path;
   return `${FLEX_API_URL}${cleanPath}`;
 };
 
-// Debug logging
-console.log('Backend Config:', { 
-  flex: FLEX_API_URL, 
-  mediapipe: MEDIAPIPE_WS_URL, 
-  socket: SOCKET_URL || '(same origin)',
-  isDevelopment 
+console.log('Backend Config:', {
+  flex: FLEX_API_URL,
+  mediapipe: MEDIAPIPE_WS_URL,
+  socket: SOCKET_URL,
+  isLocalhost,
+  hostname,
+  laptopIP: LAPTOP_IP
 });
