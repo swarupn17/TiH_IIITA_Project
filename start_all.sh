@@ -4,7 +4,7 @@
 #
 #  Raspberry Pi IP : 10.20.205.38 (default)
 #  Camera stream   : http://10.20.205.38:8080/video
-#  Flex sensor     : http://10.20.205.38:8080
+#  Flex sensor     : http://10.20.205.38:8080a
 #
 #  Usage:
 #    ./start_all.sh                                    # auto-detects laptop IP
@@ -79,21 +79,29 @@ success "Flex Pi base  : $PI_BASE_URL"
 header "Detecting Laptop IP"
 
 LAPTOP_IP=""
+PI_NETWORK=""
 
-# Windows (Git Bash) - get first non-localhost IPv4
-if command -v ipconfig.exe >/dev/null 2>&1; then
-  LAPTOP_IP=$(ipconfig.exe 2>/dev/null | grep "IPv4" | grep -v "127.0.0.1" | head -1 | awk '{print $NF}' | tr -d '\r')
+LAPTOP_IP=""
+PI_HOST=$(echo "$CAM_URL" | sed 's|http://||' | sed 's|:.*||' | sed 's|/.*||')
+info "Getting Pi IP via SSH..."
+PI_IP=$(ssh -i ~/.ssh/pi_key -o ConnectTimeout=5 -o StrictHostKeyChecking=no -o BatchMode=yes "bdalab@${PI_HOST}" "hostname -I 2>/dev/null | awk '{print \$1}'" 2>/dev/null | tr -d '\r\n' || echo "")
+if [ -n "$PI_IP" ]; then
+  PI_NETWORK=$(echo "$PI_IP" | cut -d'.' -f1-3)
+  info "Pi IP: ${CYAN}${PI_IP}${RESET} Network: ${CYAN}${PI_NETWORK}.x${RESET}"
+  if command -v ipconfig.exe >/dev/null 2>&1; then
+    LAPTOP_IP=$(ipconfig.exe 2>/dev/null | grep "IPv4" | grep "${PI_NETWORK}\." | awk '{print $NF}' | tr -d '\r' | head -1)
+  fi
 fi
-
-# Linux/Mac fallback
 if [ -z "$LAPTOP_IP" ]; then
-  LAPTOP_IP=$(hostname -I 2>/dev/null | awk '{print $1}')
+  if command -v ipconfig.exe >/dev/null 2>&1; then
+    LAPTOP_IP=$(ipconfig.exe 2>/dev/null | grep "IPv4" | grep -v "127.0.0.1" | awk '{print $NF}' | tr -d '\r' | head -1)
+  else
+    LAPTOP_IP=$(hostname -I 2>/dev/null | awk '{print $1}')
+  fi
 fi
-
-# Final fallback
 if [ -z "$LAPTOP_IP" ]; then
   LAPTOP_IP="localhost"
-  warn "Could not detect laptop IP — phone access may not work. Set manually in config.js"
+  warn "Could not detect laptop IP"
 else
   success "Laptop IP detected: ${CYAN}$LAPTOP_IP${RESET}"
 fi

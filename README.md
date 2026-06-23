@@ -16,6 +16,8 @@ Real-time hand gesture recognition using Raspberry Pi 4, flex sensors, MediaPipe
 
 ## 🖥️ System Requirements
 
+
+
 ### Laptop / PC
 
 - Python 3.9 or higher → https://www.python.org/downloads/

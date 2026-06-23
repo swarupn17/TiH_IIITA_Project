@@ -24,7 +24,7 @@ PORT = 8080
 WIDTH = 640          # Good balance for hand detection
 HEIGHT = 480
 FRAMERATE = 30       # Target FPS
-JPEG_QUALITY = 70    # Lower = faster, 60-80 is good for gestures
+JPEG_QUALITY = 70      # Lower = faster, 60-80 is good for gestures
 BUFFER_COUNT = 2     # Minimal buffering (2-4)
 SKIP_FRAMES = False  # Skip frames if client is slow
 

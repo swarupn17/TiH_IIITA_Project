@@ -1,14 +1,14 @@
 // ============================================
 // BACKEND CONFIGURATION
 // Auto-updated by start_all.sh — do not edit manually
-// Last updated: Thu May 21 17:53:12 IST 2026
-// Laptop IP: 172.20.35.235
+// Last updated: Tue, Jun 23, 2026  4:57:46 PM
+// Laptop IP: 192.168.137.1
 // ============================================
 const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
 const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
 
 // Auto-detected laptop IP — updated every time start_all.sh runs
-const LAPTOP_IP = '172.20.35.235';
+const LAPTOP_IP = '192.168.137.1';
 
 export const FLEX_API_URL = isLocalhost
   ? 'http://localhost:8000'
