@@ -36,7 +36,7 @@ CAM_URL=""
 for arg in "$@"; do
   case "$arg" in
     --force-install|-f) FORCE_INSTALL=1 ;;
-    --help|-h)
+    --help|-h)    
       echo -e "${BOLD}Usage:${RESET} $0 [OPTIONS] [CAMERA_URL]"
       echo ""
       echo "  CAMERA_URL           Override Pi camera URL (default: $DEFAULT_CAM_URL)"
@@ -241,8 +241,31 @@ cd "$ROOT_DIR"
 PID_FLEX=$!
 success "flex started (PID $PID_FLEX)"
 
+# ── Wait for FastAPI then start Raspberry Pi services ─────────
+info "Waiting for FastAPI backend to be ready ..."
+for i in $(seq 1 20); do
+  if curl -sf http://localhost:8000/latest >/dev/null 2>&1; then
+    success "FastAPI is ready"
+    break
+  fi
+  sleep 1
+done
+
+header "Starting Raspberry Pi Services"
+
+ssh -i ~/.ssh/pi_key -o ConnectTimeout=5 -o StrictHostKeyChecking=no \
+  "bdalab@${PI_HOST}" \
+  "nohup /home/bdalab/start_pi.sh > /home/bdalab/pi_startup.log 2>&1 < /dev/null &" \
+  || warn "Could not auto-start Pi services. Run /home/bdalab/start_pi.sh manually."
+
+success "Pi services start command sent"
+
 # 2. MediaPipe — Flask-SocketIO on port 5001
-info "Starting MediaPipe backend (Flask) → http://localhost:5001 ..."
+info "Starting MediaPipe backend (Flask) → http://
+
+
+
+localhost:5001 ..."
 cd "$ROOT_DIR/MediaPipe"
 export CAMERA_STREAM_URL="$CAM_URL"
 export FLEX_STREAM_URL="$PI_BASE_URL"
@@ -301,10 +324,22 @@ echo "$PID_FLEX $PID_MEDIAPIPE $PID_FRONTEND" > .running_pids
 cleanup() {
   echo ""
   warn "Shutting down all services ..."
+
+  # Laptop services
   kill "$PID_FLEX"      2>/dev/null || true
   kill "$PID_MEDIAPIPE" 2>/dev/null || true
   kill "$PID_FRONTEND"  2>/dev/null || true
+
+  # Raspberry Pi services
+  ssh -i ~/.ssh/pi_key \
+      -o ConnectTimeout=3 \
+      -o StrictHostKeyChecking=no \
+      "bdalab@${PI_HOST}" \
+      "pkill -f data_stream.py 2>/dev/null; pkill -f script.py 2>/dev/null" \
+      2>/dev/null || true
+
   rm -f .running_pids
+
   success "All stopped. Goodbye!"
   exit 0
 }
