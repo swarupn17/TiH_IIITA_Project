@@ -260,12 +260,16 @@ ssh -i ~/.ssh/pi_key -o ConnectTimeout=5 -o StrictHostKeyChecking=no \
 
 success "Pi services start command sent"
 
+header "Starting UNO Pulse Pipeline"
+
+ssh -f -i ~/.ssh/pi_key -o ConnectTimeout=5 -o StrictHostKeyChecking=no \
+  "bdalab@${PI_HOST}" \
+  "DISPLAY=:0 XAUTHORITY=/home/bdalab/.Xauthority /home/bdalab/launch_pulse_gui.sh >/home/bdalab/pulse_pipeline.log 2>&1"
+
+success "UNO Pulse Pipeline start command sent"
+
 # 2. MediaPipe — Flask-SocketIO on port 5001
-info "Starting MediaPipe backend (Flask) → http://
-
-
-
-localhost:5001 ..."
+info "Starting MediaPipe backend (Flask) → http://localhost:5001 ..."
 cd "$ROOT_DIR/MediaPipe"
 export CAMERA_STREAM_URL="$CAM_URL"
 export FLEX_STREAM_URL="$PI_BASE_URL"
@@ -330,12 +334,23 @@ cleanup() {
   kill "$PID_MEDIAPIPE" 2>/dev/null || true
   kill "$PID_FRONTEND"  2>/dev/null || true
 
-  # Raspberry Pi services
+  echo "Stopping Raspberry Pi + UNO pipeline..."
+
   ssh -i ~/.ssh/pi_key \
       -o ConnectTimeout=3 \
       -o StrictHostKeyChecking=no \
       "bdalab@${PI_HOST}" \
-      "pkill -f data_stream.py 2>/dev/null; pkill -f script.py 2>/dev/null" \
+      "
+      /home/bdalab/stop_pulse_pipeline.sh 2>/dev/null || true;
+
+      pkill -f serial_to_kafka.py 2>/dev/null || true;
+      pkill -f pulse_data-1.0-SNAPSHOT.jar 2>/dev/null || true;
+      pkill -f kafka.Kafka 2>/dev/null || true;
+      pkill -f QuorumPeerMain 2>/dev/null || true;
+
+      pkill -f data_stream.py 2>/dev/null || true;
+      pkill -f script.py 2>/dev/null || true;
+      " \
       2>/dev/null || true
 
   rm -f .running_pids

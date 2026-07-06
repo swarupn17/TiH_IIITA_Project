@@ -1,7 +1,7 @@
 // ============================================
 // BACKEND CONFIGURATION
 // Auto-updated by start_all.sh — do not edit manually
-// Last updated: Tue, Jun 30, 2026 11:24:42 AM
+// Last updated: Mon, Jul  6, 2026  3:40:46 PM
 // Laptop IP: 192.168.137.1
 // ============================================
 const hostname = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
